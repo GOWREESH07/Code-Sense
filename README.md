@@ -1,0 +1,141 @@
+# CodeSense — AI-Powered Software Quality Analyser
+
+CodeSense is an end-to-end software quality intelligence platform that ingests code repositories, executes multi-engine static analysis, calculates 15 industry-standard quality metrics, predicts module defect probabilities using a trained ML model with SHAP explanations, and delivers prioritized AI recommendations.
+
+---
+
+## Architecture Overview
+
+```
+                      +-------------------------------------------------------+
+                      |         Frontend: Next.js 14 App Router + Recharts     |
+                      |   - Strictly Light Theme (white / slate / indigo)     |
+                      |   - Real-time Progress Tracking (Polling)             |
+                      |   - 15 Quality Metrics & Quality Score (0-100)        |
+                      |   - Top Risks with SHAP Explanations                  |
+                      |   - Prioritized AI Recommendations & PDF Export       |
+                      +---------------------------+---------------------------+
+                                                  |
+                                                  v
+                      +-------------------------------------------------------+
+                      |               Backend: FastAPI (Python 3.11+)         |
+                      |   - Static Analysis Engine (Radon, Bandit, ESLint)   |
+                      |   - AST Metrics Engine (CBO, LCOM, DIT, NOC, Dup)    |
+                      |   - ML Defect Predictor (XGBoost / Random Forest)    |
+                      |   - AI Recommendation Engine (Gemini / Rule Fallback) |
+                      |   - Dual Database Layer (Supabase + SQLite Fallback)  |
+                      +-------------------------------------------------------+
+```
+
+---
+
+## The 15 Fixed Quality Metrics
+
+1. **Cyclomatic Complexity**: Average decision branches per function (Radon CC / AST heuristics).
+2. **Lines of Code (LOC)**: Total executable lines of code.
+3. **Maintainability Index**: 0–100 scale composite maintainability index (Radon MI).
+4. **Code Duplication %**: Percentage of identical logic calculated via sliding-window hash blocks.
+5. **Coupling Between Objects (CBO)**: External classes and type references coupled to module classes.
+6. **Lack of Cohesion of Methods (LCOM)**: Henderson-Sellers disjointness measure across instance attributes.
+7. **Depth of Inheritance Tree (DIT)**: Maximum inheritance hierarchy depth.
+8. **Number of Children (NOC)**: Maximum subclass fan-out.
+9. **Defect Density**: Identified defects per 1,000 executable lines of code (KLOC).
+10. **Code Smells Count**: Total code smells and convention issues (Pylint / ESLint).
+11. **Technical Debt (minutes)**: Remediation cost model based on severity and architectural smells.
+12. **Test Coverage %**: Ratio of automated test suites and test code assertions to total code.
+13. **Comment Density**: Documentation and inline comment ratio.
+14. **Security Vulnerabilities**: High, medium, and low security flaws (Bandit / CWE / static heuristics).
+15. **Bug Prediction Score**: Module defect probability (0.0 to 1.0) predicted by trained ML model.
+
+*Plus a prominent composite **Overall Quality Score (0–100)** with letter grade (A+, A, B, C, D).*
+
+---
+
+## Machine Learning Pipeline
+
+- **Datasets**: NASA MDP / PROMISE defect datasets (CM1, KC1, PC1, JM1).
+- **Candidate Models Evaluated**: Random Forest, XGBoost, Support Vector Machine (SVM).
+- **Model Selection**: Evaluated with 5-fold Stratified Cross-Validation on F1 score and ROC-AUC.
+- **Winner**: XGBoost Classifier serialized with `joblib` in `backend/models/defect_model.joblib`.
+- **Explainability**: Integrated SHAP (SHapley Additive exPlanations) providing human-readable explanations of feature risk contributions (e.g. `Cyclomatic Complexity (18.5) increases defect likelihood (+219.9%)`).
+
+---
+
+## AI Recommendation Engine
+
+- Wrapped behind a `RecommendationProvider` interface.
+- When `GEMINI_API_KEY` is provided, queries Google Gemini (`gemini-2.5-flash`) with structured schema.
+- When no API key is provided, gracefully falls back to an expert rule-based recommendation provider targeting critical security alerts, high-complexity hotspots, coupling bottlenecks, and test coverage gaps.
+- Produces maximum 5 prioritized recommendations ranked by urgency with concrete code suggested fixes.
+
+---
+
+## Quickstart & Local Setup
+
+### Option 1: Run with Docker Compose
+```bash
+docker-compose up --build
+```
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8000`
+
+### Option 2: Run Locally (npm & python)
+
+#### 1. Backend Setup
+```bash
+cd backend
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run server
+PYTHONPATH=. uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+#### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev -- -p 3000
+```
+Visit `http://localhost:3000`.
+
+---
+
+## Running Tests
+
+### Backend Unit & Integration Tests (pytest)
+```bash
+PYTHONPATH=. backend/.venv/bin/pytest backend/tests/ -v
+```
+
+### Next.js Production Build Test
+```bash
+cd frontend && npm run build
+```
+
+---
+
+## Environment Variables (.env)
+
+```ini
+# Backend
+BACKEND_PORT=8000
+BACKEND_HOST=0.0.0.0
+
+# Optional: Supabase credentials (falls back to local SQLite zero-config if unset)
+SUPABASE_URL=
+SUPABASE_KEY=
+SUPABASE_JWT_SECRET=
+
+# Optional: Google Gemini API Key (falls back to rule engine if unset)
+GEMINI_API_KEY=
+
+# ML Model
+MODEL_PATH=models/defect_model.joblib
+
+# Frontend
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```

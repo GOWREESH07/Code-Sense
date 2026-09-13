@@ -1,0 +1,19 @@
+# Environments & dependencies
+backend/.venv/
+frontend/node_modules/
+frontend/.next/
+
+# Local databases & uploads
+backend/data/*.db
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# System files
+.DS_Store
+*.log
