@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/*.db
+**/*.log
+**/.git
+**/.pytest_cache
+**/.DS_Store
