@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   ArrowLeft, Download, ShieldCheck, AlertTriangle, Bug, Code2, 
   Clock, CheckCircle2, TrendingUp, Sparkles, FileText, Search, 
-  ArrowUpDown, Filter, ChevronRight, RefreshCw, Layers, ShieldAlert
+  ArrowUpDown, Filter, ChevronRight, RefreshCw, Layers, ShieldAlert, Bot
 } from "lucide-react";
 import { 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, 
@@ -137,6 +137,16 @@ export default function AnalysisDashboardPage() {
   const summary = run.summary || {};
   const overallScore = run.overall_score || 0;
 
+  // Aggregate AI-Generated Code % (LOC-weighted) and Confidence
+  const totalFileLoc = file_metrics.reduce((acc, f) => acc + (f.loc || 0), 0);
+  const weightedAiLoc = file_metrics.reduce((acc, f) => acc + (f.loc || 0) * (f.ai_generated_score || 0), 0);
+  const aiGeneratedPct = summary.ai_generated_pct !== undefined 
+    ? summary.ai_generated_pct 
+    : (totalFileLoc > 0 ? Number(((weightedAiLoc / totalFileLoc) * 100).toFixed(1)) : 0);
+
+  const aiConfidence = summary.top_ai_files?.[0]?.ai_confidence || (totalFileLoc >= 35 ? "medium" : "low");
+
+
   // Grade badge based on score
   const getGrade = (score: number) => {
     if (score >= 90) return { grade: "A+", color: "text-emerald-700 bg-emerald-50 border-emerald-200" };
@@ -175,7 +185,7 @@ export default function AnalysisDashboardPage() {
     }));
 
   return (
-    <div className="space-y-8" id="dashboard-content">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" id="dashboard-content">
       {/* Top Navigation & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -228,7 +238,7 @@ export default function AnalysisDashboardPage() {
           </div>
 
           {/* Core Metrics Quick Cards */}
-          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
             <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
               <div className="flex items-center justify-between text-slate-500 mb-1">
                 <span className="text-[11px] font-semibold uppercase">Total LOC</span>
@@ -269,6 +279,32 @@ export default function AnalysisDashboardPage() {
                 {summary.security_vulnerabilities || 0}
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">Bandit / static findings</p>
+            </div>
+
+            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 flex flex-col justify-between col-span-2 sm:col-span-1">
+              <div>
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-[11px] font-semibold uppercase">AI-Generated</span>
+                  <Bot className="w-4 h-4 text-violet-600" />
+                </div>
+                <div className="flex items-baseline space-x-2">
+                  <p className="text-xl font-bold text-slate-900">{aiGeneratedPct}%</p>
+                  <span
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                      aiConfidence === "high"
+                        ? "bg-violet-50 text-violet-700 border-violet-200"
+                        : aiConfidence === "medium"
+                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    {aiConfidence}
+                  </span>
+                </div>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-2 leading-tight italic border-t border-slate-200/70 pt-1.5">
+                Estimated heuristically — not a definitive determination. Treat as a signal, not a verdict.
+              </p>
             </div>
           </div>
         </div>
@@ -656,6 +692,15 @@ export default function AnalysisDashboardPage() {
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
+                <th
+                  onClick={() => toggleSort("ai_generated_score")}
+                  className="py-3 px-4 cursor-pointer hover:text-slate-900"
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>AI-Generated %</span>
+                    <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -700,10 +745,49 @@ export default function AnalysisDashboardPage() {
                       {(f.bug_probability * 100).toFixed(1)}%
                     </span>
                   </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`font-mono font-semibold text-xs ${
+                          (f.ai_generated_score ?? 0) >= 0.7
+                            ? "text-violet-700 font-bold"
+                            : (f.ai_generated_score ?? 0) >= 0.4
+                            ? "text-indigo-700"
+                            : "text-slate-700"
+                        }`}
+                      >
+                        {Math.round((f.ai_generated_score ?? 0) * 100)}%
+                      </span>
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${
+                          f.ai_confidence === "high"
+                            ? "bg-violet-50 text-violet-700 border-violet-200"
+                            : f.ai_confidence === "medium"
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        {f.ai_confidence || "low"}
+                      </span>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mandatory Heuristic Caveat Footer */}
+        <div className="bg-slate-50/90 px-6 py-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold text-slate-800">AI Signal Caveat:</span>
+            <span className="italic">
+              Estimated heuristically — not a definitive determination. Treat as a signal, not a verdict.
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-400">
+            Signals: Indentation regularity, comment patterns, identifier entropy, boilerplate scaffolding
+          </span>
         </div>
       </div>
 
@@ -727,7 +811,7 @@ export default function AnalysisDashboardPage() {
             </div>
 
             {/* Metrics Breakdown */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
                 <span className="text-[10px] uppercase font-bold text-slate-500">Complexity</span>
                 <p className="text-lg font-bold text-slate-900">{activeFile.cyclomatic_complexity}</p>
@@ -740,6 +824,23 @@ export default function AnalysisDashboardPage() {
                 <span className="text-[10px] uppercase font-bold text-slate-500">Bug Probability</span>
                 <p className="text-lg font-bold text-slate-900">{(activeFile.bug_probability * 100).toFixed(1)}%</p>
               </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                <span className="text-[10px] uppercase font-bold text-slate-500">AI Probability</span>
+                <p className="text-lg font-bold text-violet-700">
+                  {Math.round((activeFile.ai_generated_score ?? 0) * 100)}%
+                </p>
+                <span className="text-[9px] font-semibold text-slate-500 uppercase block mt-0.5">
+                  {activeFile.ai_confidence || "low"} conf
+                </span>
+              </div>
+            </div>
+
+            {/* AI Signal Disclaimer Banner */}
+            <div className="mb-6 p-2.5 rounded-lg bg-violet-50/70 border border-violet-100 flex items-center space-x-2 text-xs text-violet-900">
+              <Bot className="w-4 h-4 text-violet-600 shrink-0" />
+              <span>
+                <strong>AI Detection:</strong> Estimated heuristically — not a definitive determination. Treat as a signal, not a verdict.
+              </span>
             </div>
 
             {/* SHAP Explanations */}

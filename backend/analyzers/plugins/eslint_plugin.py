@@ -38,13 +38,13 @@ class ESLintPlugin(AnalyzerPlugin):
             mi = max(20.0, min(100.0, 171 - 5.2 * (avg_cc ** 0.5) - 0.23 * loc))
             metrics["maintainability_index"] = round(mi, 2)
 
-        # Attempt to run eslint via npx if available
-        npx_bin = shutil.which("npx")
+        # Attempt to run eslint if directly installed
+        eslint_bin = shutil.which("eslint")
         eslint_ran = False
-        if npx_bin and file_path.exists():
+        if eslint_bin and file_path.exists():
             try:
                 cmd = [
-                    npx_bin, "eslint",
+                    eslint_bin,
                     "--format", "json",
                     "--no-eslintrc",
                     "--rule", "no-eval: error",
@@ -53,7 +53,7 @@ class ESLintPlugin(AnalyzerPlugin):
                     "--rule", "eqeqeq: warn",
                     str(file_path)
                 ]
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
                 if res.stdout.strip():
                     try:
                         reports = json.loads(res.stdout)

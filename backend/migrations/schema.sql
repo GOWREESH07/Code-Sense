@@ -3,7 +3,7 @@
 -- 1. Projects Table
 CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID,
+    user_id TEXT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     repo_url TEXT,
@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS file_metrics (
     comment_density NUMERIC(5, 2) NOT NULL DEFAULT 0,
     bug_probability NUMERIC(4, 3) NOT NULL DEFAULT 0,
     smells_count INTEGER NOT NULL DEFAULT 0,
+    ai_generated_score NUMERIC(4, 3) NOT NULL DEFAULT 0.0,
+    ai_confidence VARCHAR(50) NOT NULL DEFAULT 'low',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

@@ -40,6 +40,8 @@ export interface FileMetric {
   comment_density: number;
   bug_probability: number;
   smells_count: number;
+  ai_generated_score?: number;
+  ai_confidence?: "low" | "medium" | "high" | string;
   top_contributing_factors?: Array<{
     feature: string;
     display_name: string;
@@ -142,3 +144,22 @@ export async function fetchRunComparison(projectId: string, run1: string, run2: 
   if (!res.ok) throw new Error("Failed to fetch run comparison");
   return res.json();
 }
+
+export interface AIPredictionResult {
+  ai_generated_score: number;
+  confidence: "low" | "medium" | "high";
+  loc: number;
+  features: Record<string, number>;
+  caveat: string;
+}
+
+export async function predictAIGenerated(code: string, language = "python"): Promise<AIPredictionResult> {
+  const res = await fetch(`${API_BASE_URL}/api/predict/ai-generated`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, language }),
+  });
+  if (!res.ok) throw new Error("Failed to predict AI-generated code");
+  return res.json();
+}
+

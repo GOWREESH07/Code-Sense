@@ -33,10 +33,26 @@ def run_analysis_pipeline(run_id: str, zip_path: Optional[str] = None, github_ur
                 target_dir = subdirs[0]
 
         elif github_url:
-            print(f"[Runner] Cloning {github_url} into {target_dir}...")
+            clone_url = github_url.strip().rstrip("/")
+            print(f"[Runner] Cloning {clone_url} into {target_dir}...")
             # Shallow clone
-            cmd = ["git", "clone", "--depth", "1", github_url, str(target_dir)]
-            subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+            cmd = ["git", "clone", "--depth", "1", clone_url, str(target_dir)]
+            try:
+                subprocess.run(
+                    cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env={**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+                )
+            except subprocess.CalledProcessError as cpe:
+                err_detail = (cpe.stderr or "").strip()
+                if not err_detail and cpe.stdout:
+                    err_detail = cpe.stdout.strip()
+                raise RuntimeError(f"Git clone failed: {err_detail or 'Exit status 128 (Check repository URL and permissions)'}")
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(f"Git clone timed out after 120s for repository: {clone_url}")
 
         else:
             raise ValueError("No archive file or GitHub URL provided.")
@@ -85,7 +101,7 @@ def run_analysis_pipeline(run_id: str, zip_path: Optional[str] = None, github_ur
         ]
         db.save_defects(run_id, defects_payload)
 
-        recs_payload = [r.dict() for r in recs]
+        recs_payload = [r.model_dump() if hasattr(r, "model_dump") else r.dict() for r in recs]
         db.save_recommendations(run_id, recs_payload)
 
         # Update run summary
@@ -103,6 +119,15 @@ def run_analysis_pipeline(run_id: str, zip_path: Optional[str] = None, github_ur
                     "top_contributing_factors": f["top_contributing_factors"],
                 }
                 for f in file_metrics[:5]
+            ],
+            "top_ai_files": [
+                {
+                    "file_path": f["file_path"],
+                    "loc": f["loc"],
+                    "ai_generated_score": f.get("ai_generated_score", 0.0),
+                    "ai_confidence": f.get("ai_confidence", "low"),
+                }
+                for f in sorted(file_metrics, key=lambda x: x.get("ai_generated_score", 0.0), reverse=True)[:5]
             ],
             "total_files": len(file_metrics),
             "findings_count": len(findings),

@@ -11,6 +11,7 @@ from backend.analyzers.plugins.pylint_plugin import PylintPlugin
 from backend.analyzers.plugins.bandit_plugin import BanditPlugin
 from backend.analyzers.plugins.eslint_plugin import ESLintPlugin
 from backend.analyzers.plugins.ck_metrics import ASTMetricsPlugin
+from backend.analyzers.plugins.ai_detection_plugin import AIDetectionPlugin
 
 
 IGNORE_DIRS = {
@@ -35,7 +36,9 @@ class AnalyzerPipeline:
             BanditPlugin(),
             ESLintPlugin(),
             ASTMetricsPlugin(),
+            AIDetectionPlugin(),
         ]
+
 
     def discover_files(self, repo_dir: Path) -> List[Tuple[Path, str]]:
         found_files = []
@@ -92,6 +95,8 @@ class AnalyzerPipeline:
                 "halstead_volume": 0.0,
                 "halstead_difficulty": 0.0,
                 "halstead_effort": 0.0,
+                "ai_generated_score": 0.0,
+                "ai_confidence": "low",
             }
 
             if is_test_file:

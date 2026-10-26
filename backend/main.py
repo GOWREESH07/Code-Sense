@@ -6,6 +6,12 @@ root_dir = Path(__file__).resolve().parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
+from dotenv import load_dotenv
+for env_path in [Path(__file__).resolve().parent / ".env", root_dir / ".env"]:
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+
+
 import shutil
 import tempfile
 from typing import Optional, Dict, Any, List
@@ -16,6 +22,7 @@ from pydantic import BaseModel, Field
 from backend.db.database import db
 from backend.services.analysis_runner import run_analysis_pipeline
 from backend.ml.predictor import predictor
+from backend.ml.ai_detector import ai_detector
 
 app = FastAPI(
     title="CodeSense API",
@@ -56,6 +63,13 @@ class PredictRequest(BaseModel):
     halstead_volume: Optional[float] = None
     halstead_difficulty: Optional[float] = None
     halstead_effort: Optional[float] = None
+
+
+class AIPredictRequest(BaseModel):
+    code: Optional[str] = Field(None, description="Source code content")
+    content: Optional[str] = Field(None, description="Alias for source code content")
+    language: Optional[str] = Field("python", description="Programming language of the snippet")
+    file_path: Optional[str] = Field("snippet.py", description="File name/path for reference")
 
 
 @app.get("/health")
@@ -230,5 +244,19 @@ def compare_runs(
 # Standalone ML Predict Endpoint
 @app.post("/api/predict")
 def predict_defect(req: PredictRequest):
-    res = predictor.predict_file(req.dict())
+    res = predictor.predict_file(req.model_dump())
     return res
+
+
+# Standalone AI-Generated Code Detection Endpoint
+@app.post("/api/predict/ai-generated")
+@app.post("/predict/ai-generated")
+def predict_ai_generated(req: AIPredictRequest):
+    code_content = req.code if req.code is not None else (req.content or "")
+    res = ai_detector.predict_file(
+        content=code_content,
+        language=req.language or "python",
+    )
+    return res
+
+

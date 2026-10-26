@@ -17,10 +17,6 @@ class GeminiRecommendationProvider(RecommendationProvider):
         findings: List[Any],
     ) -> List[RecommendationItem]:
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            model = genai.GenerativeModel("gemini-2.5-flash")
-
             # Prepare structured context
             context_data = {
                 "metrics_summary": metrics_summary,
@@ -55,8 +51,32 @@ Each JSON object must have the following fields:
 - "file_path": relevant file path if specific, or empty string
 - "impact": one of ["Critical", "High", "Medium", "Low"]
 """
-            response = model.generate_content(prompt)
-            text = response.text.strip()
+            # Use modern google.genai SDK (with fallback for legacy environments)
+            try:
+                from google import genai
+                from google.genai import types
+                client = genai.Client(api_key=self.api_key)
+                config = types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+                )
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=config,
+                )
+                text = response.text.strip() if response.text else ""
+
+            except ImportError:
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=FutureWarning)
+                    import google.generativeai as legacy_genai
+                legacy_genai.configure(api_key=self.api_key)
+                model = legacy_genai.GenerativeModel("gemini-2.5-flash")
+                response = model.generate_content(prompt)
+                text = response.text.strip() if response.text else ""
+
             # Clean possible markdown wrapping
             if text.startswith("```"):
                 text = text.strip("`")

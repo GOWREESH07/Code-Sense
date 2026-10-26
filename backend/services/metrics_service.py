@@ -75,7 +75,15 @@ class MetricsService:
         )
         overall_score = max(5.0, min(100.0, overall_score))
 
-        # Compile the fixed set of 15 metrics
+        # AI-Generated Code Metric: LOC-weighted average across all files
+        total_file_loc = sum(m.get("loc", 0) for m in file_metrics)
+        if total_file_loc > 0:
+            weighted_ai_sum = sum(m.get("loc", 0) * m.get("ai_generated_score", 0.0) for m in file_metrics)
+            ai_generated_pct = round((weighted_ai_sum / total_file_loc) * 100.0, 1)
+        else:
+            ai_generated_pct = 0.0
+
+        # Compile the fixed set of metrics + AI code metric
         fixed_metrics = {
             "cyclomatic_complexity": avg_cc,
             "loc": total_loc,
@@ -92,6 +100,7 @@ class MetricsService:
             "comment_density": avg_comment_density,
             "security_vulnerabilities": security_count,
             "bug_prediction_score": avg_bug_probability,
+            "ai_generated_pct": ai_generated_pct,
             "overall_quality_score": overall_score,
             # Sub-scores for dimensional radar charts
             "dimension_scores": {
@@ -104,6 +113,7 @@ class MetricsService:
         }
 
         return fixed_metrics
+
 
 
 metrics_service = MetricsService()
